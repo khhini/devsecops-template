@@ -1,0 +1,54 @@
+steps:
+  ###
+  # CI Pipeline
+  ###
+  - name: ""
+    id: "generate env file"
+
+  - name: ""
+    id: "check commit message"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        build/check_commit_message.sh
+
+  - name: ""
+    id: "check image tag exist"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        build/check_image_tag_exist.sh
+
+  - name: ""
+    id: build
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        if
+
+  - name: ""
+    id: "re-tag image"
+
+  - name: ""
+    id: "push all tags"
+
+  ###
+  # CD Pipeline
+  ###
+  - name: ""
+    id: tofu_init
+
+  - name: ""
+    id: tofu_plan
+
+  - name: ""
+    id: "tofu_apply"
+
+substitutions:
+  _BEFORE_SCRIPT: |
+
+options:
+  logging: CLOUD_LOGGING_ONLY
