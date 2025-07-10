@@ -1,0 +1,36 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Build with docker"
+    args:
+      - build
+      - -f=${_DOCKERFILE_PATH}
+      - -t=${_APP_IMAGE_URI}:latest
+      - ${_BUILD_PATH}
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Tag image"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        docker tag ${_APP_IMAGE_URI}:latest ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
+        docker tag ${_APP_IMAGE_URI}:latest ${_APP_IMAGE_URI}:${_APP_ENV}
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Push all tags"
+    args:
+      - push
+      - --all-tags
+      - ${_APP_IMAGE_URI}
+
+substitutions:
+  _BUILD_PATH: "."
+  _BUILD_COMMIT: "commit_sha"
+  _DOCKERFILE_PATH: "./build/Dockerfile"
+
+  _APP_ENV: "dev"
+  _APP_IMAGE_URI: "hub.docker.com/example/app"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

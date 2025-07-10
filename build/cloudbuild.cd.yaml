@@ -1,0 +1,95 @@
+steps:
+  ###########################
+  # CD Pipeline
+  ###########################
+  - name: "ghcr.io/opentofu/opentofu:1.10.1"
+    id: Tofu init
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=${BRANCH_NAME}
+        if [ "${_build_env}" = "main" ]; then
+          _build_env=prd
+        fi
+
+        _env_path="environments/${_build_env}"
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        echo "########################################"
+        echo "# Init tofu state for '${_build_env}'"
+        echo "########################################"
+
+        tofu init \
+          -var-file="${_env_path}/terraform.tfvars" \
+          -backend-config="bucket=${_TOFU_BACKEND_BUCKET}" \
+          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_build_env}"
+
+        tofu output
+        tofu output app_env >  /workspace/APP_ENV.txt
+        tofu output app_image_uri > /workspace/APP_IMAGE_URI.txt
+        tofu output continuous_deployment_trigger > /workspace/CLOUDBUILD_CD_TRIGGER.txt
+
+  - name: "ghcr.io/opentofu/opentofu:1.10.1"
+    id: Tofu plan
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=$(cat /workspace/APP_ENV.txt | tr -d '"')
+
+        _base_dir=$(pwd)
+        _env_path="environments/${_build_env}"
+
+        if [ ! -d "${_base_dir}/tmp_plan" ]; then
+          mkdir "${_base_dir}/tmp_plan" || exit
+        fi
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        ls -la ${_env_path}
+        ls -la
+
+        echo "########################################"
+        echo "# Generate deployment plan for '${_build_env}'"
+        echo "########################################"
+
+        tofu plan \
+          -var-file=${_env_path}/terraform.tfvars \
+          -var=app_image_tag=${COMMIT_SHA} \
+          -out=${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
+
+  - name: "ghcr.io/opentofu/opentofu:1.10.1"
+    id: Tofu apply
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=$(cat /workspace/APP_ENV.txt | tr -d '"')
+
+        _base_dir=$(pwd)
+        _env_path="environments/${_build_env}"
+
+        if [ ! -d "${_base_dir}/tmp_plan" ]; then
+          mkdir "${_base_dir}/tmp_plan" || exit
+        fi
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        echo "########################################"
+        echo "# Apply deployment plan for '${_build_env}'"
+        echo "########################################"
+
+        tofu apply ${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
+
+substitutions:
+  # Build config
+  _DEPLOYMENT_CONFIG_PATH: "." #TODO: deployments configuration path
+
+  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt" #TODO: define tofu state backend
+  _TOFU_BACKEND_PREFIX: "tofu/sample-app" #TODO: define tofu state prefix
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

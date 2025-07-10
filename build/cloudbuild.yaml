@@ -2,128 +2,18 @@ steps:
   ###########################
   # CI Pipeline
   ###########################
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "Run Pre-build check"
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        ./deployments/build/check_commit_message.sh ${_COMMIT_CHECK_RESULT}
-
-        ./deployments/build/check_image_tag_exist.sh "${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}" $COMMIT_SHA $_TAG_CHECK_RESULT
-
-  - name: "gcr.io/k8s-skaffold/pack"
-    id: Build with buildpack
-    entrypoint: "/bin/sh"
-    args:
-      - -c
-      - |
-        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-
-        if [[ "${commit_check_result}" = "0" && "${tag_check_result}" = "0" && "${_BUILDER}" = "buildpack" ]]; then
-          echo "########################################"
-          echo "# Run build step using buildpack"
-          echo "########################################"
-          
-          pack build \
-            ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest \
-            --builder=${_BUILDPACK_BUILDER} \
-            --path=${_BUILD_PATH}
-
-        else
-          echo "########################################"
-          echo "# Skip build step using buildpack"
-          echo "########################################"
-        fi
-
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: Build with docker
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-
-        if [[ "${commit_check_result}" = "0" && "${tag_check_result}" = "0" && "${_BUILDER}" = "docker" ]]; then
-          echo "########################################"
-          echo "# Run build step using docker"
-          echo "########################################"
-          
-          docker build \
-            -f=${_DOCKERFILE_PATH} \
-            -t=${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest \
-            ${_BUILD_PATH}
-
-        else
-          echo "########################################"
-          echo "# Skip build step using docker"
-          echo "########################################"
-        fi
-
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "Tag image"
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-
-        if [[ "${commit_check_result}" = "1" && "${tag_check_result}" = "1" && "${_BUILDER}" = "buildpack" ]]; then
-
-          echo "########################################"
-          echo "# Run re-tag image step"
-          echo "########################################"
-
-          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:$COMMIT_SHA 
-          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:$SHORT_SHA
-          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:${_IMAGE_TAG}
-          
-        else
-          echo "########################################"
-          echo "# Skip re-tag image step"
-          echo "########################################"
-        fi
-
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "Push all tags"
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
-
-        if [[ "${commit_check_result}" = "1" && "${tag_check_result}" = "1" && "${_BUILDER}" = "buildpack" ]]; then
-          echo "########################################"
-          echo "# Run push image step"
-          echo "########################################"
-
-          docker push --all-tags ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}
-
-        else
-          echo "########################################"
-          echo "# Skip push image step"
-          echo "########################################"
-        fi
-
-  ###########################
-  # CD Pipeline
-  ###########################
-  - name: ""
-    id: Tofu init
+  - name: "ghcr.io/opentofu/opentofu:1.10.1"
+    id: Retrieve environments metadata
     entrypoint: /bin/bash
     args:
       - -c
       - |
         _build_env=${BRANCH_NAME}
-        if [ "${_build_env}" == "main" ]; then
+        if [ "${_build_env}" = "main" ]; then
           _build_env=prd
         fi
 
-        _env_path = "environments/${_build_env}
+        _env_path="environments/${_build_env}"
 
         cd ${_DEPLOYMENT_CONFIG_PATH}
 
@@ -132,81 +22,53 @@ steps:
         echo "########################################"
 
         tofu init \
-          -var-file=${_env_path}/terraform.tfvars \
-          -backend=${_env_path}/backend.tf
+          -var-file="${_env_path}/terraform.tfvars" \
+          -backend-config="bucket=${_TOFU_BACKEND_BUCKET}" \
+          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_build_env}"
 
-  - name: ""
-    id: Tofu init
-    entrypoint: /bin/bash
+        tofu output
+        tofu output app_env >  /workspace/APP_ENV.txt
+        tofu output app_image_uri > /workspace/APP_IMAGE_URI.txt
+        tofu output continuous_deployment_trigger > /workspace/CLOUDBUILD_CD_TRIGGER.txt
+
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Run build steps"
+    entrypoint: "/bin/bash"
     args:
       - -c
       - |
-        _build_env=${BRANCH_NAME}
-        if [ "${_build_env}" == "main" ]; then
-          _build_env=prd
-        fi
+        _app_image_uri=$(cat /workspace/APP_IMAGE_URI.txt | tr -d '"')
+        _app_env=$(cat /workspace/APP_ENV.txt | tr -d '"')
 
-        _base_dir = $(pwd)
-        _env_path = "environments/${_build_env}
+        gcloud builds submit ${_BUILD_PATH} \
+          --config=${_BUILD_PATH}/build/cloudbuild.${_BUILDER}.yaml \
+          --region=${LOCATION} \
+          --service-account=${SERVICE_ACCOUNT} \
+          --substitutions=_BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
 
-        if [ ! -d "${_base_dir}/tmp_plan" ]; then
-          mkdir "${_base_dir}/tmp_plan" || exit
-        fi
-
-        cd ${_DEPLOYMENT_CONFIG_PATH}
-
-        echo "########################################"
-        echo "# Generate deployment plan for '${_build_env}'"
-        echo "########################################"
-
-        tofu plan \
-          -var-file=${_env_path}/terraform.tfvars \
-          -backend=${_env_path}/backend.tf \
-          -out=${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
-
-  - name: ""
-    id: Tofu init
-    entrypoint: /bin/bash
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Run deloyment steps"
+    entrypoint: "/bin/bash"
     args:
       - -c
       - |
-        _build_env=${BRANCH_NAME}
-        if [ "${_build_env}" == "main" ]; then
-          _build_env=prd
-        fi
+        _cloudbuild_cd_trigger=$(cat /workspace/CLOUDBUILD_CD_TRIGGER.txt | tr -d '"')
 
-        _base_dir = $(pwd)
-        _env_path = "environments/${_build_env}
-
-        if [ ! -d "${_base_dir}/tmp_plan" ]; then
-          mkdir "${_base_dir}/tmp_plan" || exit
-        fi
-
-        cd ${_DEPLOYMENT_CONFIG_PATH}
-
-        echo "########################################"
-        echo "# Apply deployment plan for '${_build_env}'"
-        echo "########################################"
-
-        tofu apply\
-          -var-file=${_env_path}/terraform.tfvars \
-          -backend=${_env_path}/backend.tf \
-          ${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
+        gcloud builds triggers run ${_cloudbuild_cd_trigger} \
+          --branch=${BRANCH_NAME} \
+          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX} \
+          --region=${LOCATION}
 
 substitutions:
   # Build config
-  _BUILDER: "buildpack" #TODO: define image builder "docker" || "buildpack"
-  _BUILD_PATH: "." #TODO build path
-  _DOCKERFILE_PATH: deployments/build/Dockerfile #TODO dockerfile path
-  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest" # buildpack builder
+  _BUILDER: "docker" #TODO: define build method wheter using "docker" or "buildpack"
+  _BUILD_PATH: "." #TODO: define path of source project to build
+  _DEPLOYMENT_CONFIG_PATH: "." #TODO: define this template location within project structure
+  _DOCKERFILE_PATH: ${_DEPLOYMENT_CONFIG_PATH}/build/Dockerfile #TODO: define dockerfile location
+  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest" #TODO: define builder for buildpack
 
-  _IMAGE_NAME: "sample-python-app" #TODO: define image name
-  _IMAGE_TAG: "dev" #TODO: define image tag
-  _COMMIT_CHECK_RESULT: /workspace/commit_check.txt
-  _TAG_CHECK_RESULT: /workspace/tag_check.txt
-
-  _TARGET_PROJECT_ID: "" #TODO: define deployment target project ID
-  _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/${_TARGET_PROJECT_ID}/docker-repo
+  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt" #TODO: define cloud storage bucket that used as tofu backend
+  _TOFU_BACKEND_PREFIX: "tofu/sample-app" #TODO: define tofu state prefix whithin bucket
 
 options:
   logging: CLOUD_LOGGING_ONLY
