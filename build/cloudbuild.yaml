@@ -1,54 +1,213 @@
 steps:
-  ###
+  ###########################
   # CI Pipeline
-  ###
-  - name: ""
-    id: "generate env file"
-
-  - name: ""
-    id: "check commit message"
+  ###########################
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "Run Pre-build check"
     entrypoint: "/bin/bash"
     args:
       - -c
       - |
-        build/check_commit_message.sh
+        ./deployments/build/check_commit_message.sh ${_COMMIT_CHECK_RESULT}
 
-  - name: ""
-    id: "check image tag exist"
+        ./deployments/build/check_image_tag_exist.sh "${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}" $COMMIT_SHA $_TAG_CHECK_RESULT
+
+  - name: "gcr.io/k8s-skaffold/pack"
+    id: Build with buildpack
+    entrypoint: "/bin/sh"
+    args:
+      - -c
+      - |
+        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+
+        if [[ "${commit_check_result}" = "0" && "${tag_check_result}" = "0" && "${_BUILDER}" = "buildpack" ]]; then
+          echo "########################################"
+          echo "# Run build step using buildpack"
+          echo "########################################"
+          
+          pack build \
+            ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest \
+            --builder=${_BUILDPACK_BUILDER} \
+            --path=${_BUILD_PATH}
+
+        else
+          echo "########################################"
+          echo "# Skip build step using buildpack"
+          echo "########################################"
+        fi
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: Build with docker
     entrypoint: "/bin/bash"
     args:
       - -c
       - |
-        build/check_image_tag_exist.sh
+        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
 
-  - name: ""
-    id: build
+        if [[ "${commit_check_result}" = "0" && "${tag_check_result}" = "0" && "${_BUILDER}" = "docker" ]]; then
+          echo "########################################"
+          echo "# Run build step using docker"
+          echo "########################################"
+          
+          docker build \
+            -f=${_DOCKERFILE_PATH} \
+            -t=${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest \
+            ${_BUILD_PATH}
+
+        else
+          echo "########################################"
+          echo "# Skip build step using docker"
+          echo "########################################"
+        fi
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "Tag image"
     entrypoint: "/bin/bash"
     args:
       - -c
       - |
-        if
+        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
 
-  - name: ""
-    id: "re-tag image"
+        if [[ "${commit_check_result}" = "1" && "${tag_check_result}" = "1" && "${_BUILDER}" = "buildpack" ]]; then
 
-  - name: ""
-    id: "push all tags"
+          echo "########################################"
+          echo "# Run re-tag image step"
+          echo "########################################"
 
-  ###
+          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:$COMMIT_SHA 
+          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:$SHORT_SHA
+          docker tag ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:latest ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}:${_IMAGE_TAG}
+          
+        else
+          echo "########################################"
+          echo "# Skip re-tag image step"
+          echo "########################################"
+        fi
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "Push all tags"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        commit_check_result=$(cat "${_COMMIT_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+        tag_check_result=$(cat "${_TAG_CHECK_RESULT}" | tr -d '\n' | tr -d '[:space:]')
+
+        if [[ "${commit_check_result}" = "1" && "${tag_check_result}" = "1" && "${_BUILDER}" = "buildpack" ]]; then
+          echo "########################################"
+          echo "# Run push image step"
+          echo "########################################"
+
+          docker push --all-tags ${_ARTIFACT_REGISTRY_URI}/${_IMAGE_NAME}
+
+        else
+          echo "########################################"
+          echo "# Skip push image step"
+          echo "########################################"
+        fi
+
+  ###########################
   # CD Pipeline
-  ###
+  ###########################
   - name: ""
-    id: tofu_init
+    id: Tofu init
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=${BRANCH_NAME}
+        if [ "${_build_env}" == "main" ]; then
+          _build_env=prd
+        fi
+
+        _env_path = "environments/${_build_env}
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        echo "########################################"
+        echo "# Init tofu state for '${_build_env}'"
+        echo "########################################"
+
+        tofu init \
+          -var-file=${_env_path}/terraform.tfvars \
+          -backend=${_env_path}/backend.tf
 
   - name: ""
-    id: tofu_plan
+    id: Tofu init
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=${BRANCH_NAME}
+        if [ "${_build_env}" == "main" ]; then
+          _build_env=prd
+        fi
+
+        _base_dir = $(pwd)
+        _env_path = "environments/${_build_env}
+
+        if [ ! -d "${_base_dir}/tmp_plan" ]; then
+          mkdir "${_base_dir}/tmp_plan" || exit
+        fi
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        echo "########################################"
+        echo "# Generate deployment plan for '${_build_env}'"
+        echo "########################################"
+
+        tofu plan \
+          -var-file=${_env_path}/terraform.tfvars \
+          -backend=${_env_path}/backend.tf \
+          -out=${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
 
   - name: ""
-    id: "tofu_apply"
+    id: Tofu init
+    entrypoint: /bin/bash
+    args:
+      - -c
+      - |
+        _build_env=${BRANCH_NAME}
+        if [ "${_build_env}" == "main" ]; then
+          _build_env=prd
+        fi
+
+        _base_dir = $(pwd)
+        _env_path = "environments/${_build_env}
+
+        if [ ! -d "${_base_dir}/tmp_plan" ]; then
+          mkdir "${_base_dir}/tmp_plan" || exit
+        fi
+
+        cd ${_DEPLOYMENT_CONFIG_PATH}
+
+        echo "########################################"
+        echo "# Apply deployment plan for '${_build_env}'"
+        echo "########################################"
+
+        tofu apply\
+          -var-file=${_env_path}/terraform.tfvars \
+          -backend=${_env_path}/backend.tf \
+          ${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
 
 substitutions:
-  _BEFORE_SCRIPT: |
+  # Build config
+  _BUILDER: "buildpack" #TODO: define image builder "docker" || "buildpack"
+  _BUILD_PATH: "." #TODO build path
+  _DOCKERFILE_PATH: deployments/build/Dockerfile #TODO dockerfile path
+  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest" # buildpack builder
+
+  _IMAGE_NAME: "sample-python-app" #TODO: define image name
+  _IMAGE_TAG: "dev" #TODO: define image tag
+  _COMMIT_CHECK_RESULT: /workspace/commit_check.txt
+  _TAG_CHECK_RESULT: /workspace/tag_check.txt
+
+  _TARGET_PROJECT_ID: "" #TODO: define deployment target project ID
+  _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/${_TARGET_PROJECT_ID}/docker-repo
 
 options:
   logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

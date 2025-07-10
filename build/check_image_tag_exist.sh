@@ -8,20 +8,21 @@
 # 2. You must be logged into the Docker registry if it's private.
 #    Use 'docker login <your-registry-url>' (e.g., docker login docker.io for Docker Hub).
 #
-# Usage: ./check_docker_image.sh <image_name> <tag>
-# Example: ./check_docker_image.sh myrepo/myimage latest
-# Example: ./check_docker_image.sh nginx 1.25.3
+# Usage: ./check_docker_image.sh <image_name> <tag> <result_path>
+# Example: ./check_docker_image.sh myrepo/myimage latest check_result.txt
+# Example: ./check_docker_image.sh nginx 1.25.3 check_result.txt
 
-# Check if exactly two arguments (image name and tag) are provided
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <image_name> <tag>"
-  echo "Example: $0 myrepo/myimage latest"
+# Check if exactly two arguments (image name, tag and result file path) are provided
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <image_name> <tag> <result_path>"
+  echo "Example: $0 myrepo/myimage latest /workspace/tag_check_result.txt"
   exit 1
 fi
 
 # Assign arguments to variables
 IMAGE_NAME="$1"
 TAG="$2"
+RESULT_PATH="$3"
 FULL_IMAGE="${IMAGE_NAME}:${TAG}"
 
 echo "Checking for Docker image: ${FULL_IMAGE} in registry..."
@@ -33,17 +34,9 @@ echo "Checking for Docker image: ${FULL_IMAGE} in registry..."
 # We redirect stdout and stderr to /dev/null to keep the output clean,
 # as we only care about the exit status.
 if docker manifest inspect "${FULL_IMAGE}" >/dev/null 2>&1; then
-  echo "SUCCESS: Image '${FULL_IMAGE}' exists in the registry."
-  # You can optionally add further actions here, e.g., exit 0
-  exit 0
+  echo "1" >"${RESULT_PATH}"
+  echo "Image tag exist in registry. Wrote '1' to ${RESULT_PATH}"
 else
-  # Check if the error was due to "no such manifest" specifically
-  # This is a bit more robust than just checking the exit code,
-  # as other errors (like auth) also give non-zero.
-  # However, for simplicity and common cases, the exit code check is often sufficient.
-  # For a more precise check, you'd capture stderr and parse it.
-  # For this script, a general "not found or error" is acceptable.
-  echo "FAILURE: Image '${FULL_IMAGE}' does NOT exist in the registry, or there was an error (e.g., authentication required)."
-  # You can optionally add further actions here, e.g., exit 1
-  exit 1
+  echo "0" >"${RESULT_PATH}"
+  echo "Image tag does NOT exist in registry. Wrote '0' to ${RESULT_PATH}"
 fi
