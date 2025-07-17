@@ -27,42 +27,48 @@ resource "google_project_iam_member" "project_service_usage_admin_for_devops_age
 #######################################
 # Use Shared Registry
 #######################################
-# locals {
-#   registry_id       = data.google_artifact_registry_repository.app_registry.repository_id
-#   registry_location = data.google_artifact_registry_repository.app_registry.location
-#   registry_project  = data.google_artifact_registry_repository.app_registry.project
-#   app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
-# }
-#
-# data "google_artifact_registry_repository" "app_registry" {
-#   location      = var.devops_location
-#   project       = var.devops_project_id
-#   repository_id = var.artifact_registry_id
+locals {
+  registry_id       = data.google_artifact_registry_repository.app_registry.repository_id
+  registry_location = data.google_artifact_registry_repository.app_registry.location
+  registry_project  = data.google_artifact_registry_repository.app_registry.project
+  app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
+}
+
+data "google_artifact_registry_repository" "app_registry" {
+  location      = "asia-southeast2"
+  project       = var.devops_project_id
+  repository_id = var.artifact_registry_id
+}
+
+# resource "google_artifact_registry_repository_iam_member" "artifact_registry_writer" {
+#   repository = data.google_artifact_registry_repository.app_registry.id
+#   role       = "roles/artifactregistry.writer"
+#   member     = "serviceAccount:${var.devops_service_account}"
 # }
 
 #######################################
 # Use new Registry per Env
 #######################################
-locals {
-  registry_id       = google_artifact_registry_repository.app_registry.repository_id
-  registry_location = google_artifact_registry_repository.app_registry.location
-  registry_project  = google_artifact_registry_repository.app_registry.project
-  app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
-}
-
-resource "google_artifact_registry_repository" "app_registry" {
-  project       = var.project_id
-  location      = var.region
-  repository_id = coalesce(var.artifact_registry_id, var.app_name)
-  format        = "DOCKER"
-
-}
-
-resource "google_artifact_registry_repository_iam_member" "artifact_registry_admin" {
-  repository = google_artifact_registry_repository.app_registry.id
-  role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${var.devops_service_account}"
-}
+# locals {
+#   registry_id       = google_artifact_registry_repository.app_registry.repository_id
+#   registry_location = google_artifact_registry_repository.app_registry.location
+#   registry_project  = google_artifact_registry_repository.app_registry.project
+#   app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
+# }
+#
+# resource "google_artifact_registry_repository" "app_registry" {
+#   project       = var.project_id
+#   location      = var.region
+#   repository_id = coalesce(var.artifact_registry_id, var.app_name)
+#   format        = "DOCKER"
+#
+# }
+#
+# resource "google_artifact_registry_repository_iam_member" "artifact_registry_admin" {
+#   repository = google_artifact_registry_repository.app_registry.id
+#   role       = "roles/artifactregistry.writer"
+#   member     = "serviceAccount:${var.devops_service_account}"
+# }
 
 #######################################
 # Github Repository

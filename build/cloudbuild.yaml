@@ -44,7 +44,7 @@ steps:
           --config=${_BUILD_PATH}/build/cloudbuild.${_BUILDER}.yaml \
           --region=${LOCATION} \
           --service-account=${SERVICE_ACCOUNT} \
-          --substitutions=_BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
+          --substitutions=_BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri},_BUILDPACK_BUILDER=${_BUILDPACK_BUILDER}
 
   - name: "gcr.io/cloud-builders/gcloud-slim"
     id: "Run deloyment steps"
@@ -56,14 +56,14 @@ steps:
 
         gcloud builds triggers run ${_cloudbuild_cd_trigger} \
           --branch=${BRANCH_NAME} \
-          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX} \
-          --region=${LOCATION}
+          --region=${LOCATION} \
+          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX}
 
 substitutions:
   # Build config
-  _BUILDER: "docker" #TODO: define build method wheter using "docker" or "buildpack"
+  _BUILDER: "buildpack" #TODO: define build method wheter using "docker" or "buildpack"
   _BUILD_PATH: "." #TODO: define path of source project to build
-  _DEPLOYMENT_CONFIG_PATH: "." #TODO: define this template location within project structure
+  _DEPLOYMENT_CONFIG_PATH: "./deployments" #TODO: define this template location within project structure
   _DOCKERFILE_PATH: ${_DEPLOYMENT_CONFIG_PATH}/build/Dockerfile #TODO: define dockerfile location
   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest" #TODO: define builder for buildpack
 
