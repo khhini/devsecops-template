@@ -44,7 +44,7 @@ steps:
           --config=${_BUILD_PATH}/build/cloudbuild.${_BUILDER}.yaml \
           --region=${LOCATION} \
           --service-account=${SERVICE_ACCOUNT} \
-          --substitutions=_BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
+          --substitutions=${_BUILD_STEP_SUBSTITUTIONS},_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
 
   - name: "gcr.io/cloud-builders/gcloud-slim"
     id: "Run deloyment steps"
@@ -60,16 +60,49 @@ steps:
           --region=${LOCATION}
 
 substitutions:
-  # Build config
-  _BUILDER: "docker" #TODO: define build method wheter using "docker" or "buildpack"
-  _BUILD_PATH: "." #TODO: define path of source project to build
-  _DEPLOYMENT_CONFIG_PATH: "." #TODO: define this template location within project structure
-  _DOCKERFILE_PATH: ${_DEPLOYMENT_CONFIG_PATH}/build/Dockerfile #TODO: define dockerfile location
-  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest" #TODO: define builder for buildpack
+  # TODO: define build method wheter
+  # Value: "docker" || "buildpack"
+  # Example:
+  #   _BUILDER: "docker"
+  _BUILDER: "docker"
 
-  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt" #TODO: define cloud storage bucket that used as tofu backend
-  _TOFU_BACKEND_PREFIX: "tofu/sample-app" #TODO: define tofu state prefix whithin bucket
+  #TODO: define path of source project to build
+  # Example:
+  #   _BUILD_PATH: "./src"
+  _BUILD_PATH: "."
 
+  # TODO: define this template location within project structure
+  # Example:
+  #   _DEPLOYMENT_CONFIG_PATH: "./deployments"
+  _DEPLOYMENT_CONFIG_PATH: "."
+
+  #TODO: define dockerfile location
+  # Example:
+  #   _DOCKERFILE_PATH: "./deployments/Dockerfile"
+  _DOCKERFILE_PATH: ${_DEPLOYMENT_CONFIG_PATH}/build/Dockerfile
+
+  #TODO: define builder for buildpack
+  # Example:
+  #   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
+  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
+
+  _BUILDPACK_SUBSTITUTIONS: _BUILD_PATH=${_BUILD_PATH},_BUILD_COMMIT=$COMMIT_SHA,_BUILDPACK_BUILDER=${_BUILDPACK_BUILDER}
+  _DOCKER_BUILD_SUBSTITUTIONS: _BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA
+
+  # TODO: define build step substituions based on $_BUILDER
+  # for `docker` use ${_DOCKER_BUILD_SUBSTITUIOTNS}
+  # for `buildpack` use ${_BUILDPACK_SUBSTITUTIONS}
+  _BUILD_STEP_SUBSTITUTIONS: "${_DOCKER_BUILD_SUBSTITUTIONS}"
+
+  # TODO: define cloud storage bucket that used as tofu backend
+  # Example:
+  #   _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
+  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
+
+  # #TODO: define tofu state prefix whithin bucket
+  # Example:
+  #   _TOFU_BACKEND_PREFIX: "tofu/example/env"
+  _TOFU_BACKEND_PREFIX: "tofu/sample-app"
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamicSubstitutions: true

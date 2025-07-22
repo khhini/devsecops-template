@@ -17,3 +17,12 @@ output "app_env" {
 output "app_image_tag" {
   value = var.app_image_tag
 }
+
+output "cloud_run_svc_service_account" {
+  value = google_service_account.cloud_run_svc.email
+}
+
+output "cloud_run_svc_uri" {
+  value = google_cloud_run_v2_service.service.uri
+}
+

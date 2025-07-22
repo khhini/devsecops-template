@@ -24,6 +24,35 @@ resource "google_project_iam_member" "project_service_usage_admin_for_devops_age
   role    = "roles/serviceusage.serviceUsageAdmin"
 }
 
+#trivy:ignore:AVD-GCP-0007
+resource "google_project_iam_member" "project_artifact_registry_admin_for_devops_agent" {
+  member  = "serviceAccount:${var.devops_service_account}"
+  project = var.project_id
+  role    = "roles/artifactregistry.admin"
+}
+
+#trivy:ignore:AVD-GCP-0007
+resource "google_project_iam_member" "project_secret_admin_for_devops_agent" {
+  member  = "serviceAccount:${var.devops_service_account}"
+  project = var.project_id
+  role    = "roles/secretmanager.admin"
+}
+
+#trivy:ignore:AVD-GCP-0007
+resource "google_project_iam_member" "project_cloud_run_admin_for_devops_agent" {
+  member  = "serviceAccount:${var.devops_service_account}"
+  project = var.project_id
+  role    = "roles/run.admin"
+}
+
+
+#trivy:ignore:AVD-GCP-0007
+resource "google_project_iam_member" "project_service_account_admin_for_devops_agent" {
+  member  = "serviceAccount:${var.devops_service_account}"
+  project = var.project_id
+  role    = "roles/iam.serviceAccountAdmin"
+}
+
 #######################################
 # Use Shared Registry
 #######################################
@@ -58,7 +87,7 @@ resource "google_artifact_registry_repository" "app_registry" {
 
 }
 
-resource "google_artifact_registry_repository_iam_member" "artifact_registry_admin" {
+resource "google_artifact_registry_repository_iam_member" "artifact_registry_writer" {
   repository = google_artifact_registry_repository.app_registry.id
   role       = "roles/artifactregistry.writer"
   member     = "serviceAccount:${var.devops_service_account}"

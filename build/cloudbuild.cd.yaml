@@ -85,10 +85,9 @@ steps:
 
 substitutions:
   # Build config
-  _DEPLOYMENT_CONFIG_PATH: "." #TODO: deployments configuration path
-
-  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt" #TODO: define tofu state backend
-  _TOFU_BACKEND_PREFIX: "tofu/sample-app" #TODO: define tofu state prefix
+  _DEPLOYMENT_CONFIG_PATH: "."
+  _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
+  _TOFU_BACKEND_PREFIX: "tofu/sample-app"
 
 options:
   logging: CLOUD_LOGGING_ONLY
