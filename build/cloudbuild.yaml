@@ -41,7 +41,7 @@ steps:
         _app_env=$(cat /workspace/APP_ENV.txt | tr -d '"')
 
         gcloud builds submit ${_BUILD_PATH} \
-          --config=${_BUILD_PATH}/build/cloudbuild.${_BUILDER}.yaml \
+          --config=${_DEPLOYMENT_CONFIG_PATH}/build/cloudbuild.${_BUILDER}.yaml \
           --region=${LOCATION} \
           --service-account=${SERVICE_ACCOUNT} \
           --substitutions=${_BUILD_STEP_SUBSTITUTIONS},_BUILD_PATH=${_BUILD_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
