@@ -44,7 +44,7 @@ steps:
           --config=${_BUILD_PATH}/build/cloudbuild.${_BUILDER}.yaml \
           --region=${LOCATION} \
           --service-account=${SERVICE_ACCOUNT} \
-          --substitutions=${_BUILD_STEP_SUBSTITUTIONS},_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
+          --substitutions=${_BUILD_STEP_SUBSTITUTIONS},_BUILD_PATH=${_BUILD_PATH},_BUILD_COMMIT=$COMMIT_SHA,_APP_ENV=${_app_env},_APP_IMAGE_URI=${_app_image_uri}
 
   - name: "gcr.io/cloud-builders/gcloud-slim"
     id: "Run deloyment steps"
@@ -56,7 +56,7 @@ steps:
 
         gcloud builds triggers run ${_cloudbuild_cd_trigger} \
           --branch=${BRANCH_NAME} \
-          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX} \
+          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX},_APP_IMAGE_TAG=$COMMIT_SHA \
           --region=${LOCATION}
 
 substitutions:
@@ -65,6 +65,14 @@ substitutions:
   # Example:
   #   _BUILDER: "docker"
   _BUILDER: "docker"
+
+  # TODO: define build step substituions based on $_BUILDER
+  # for `docker` use ${_DOCKER_BUILD_SUBSTITUIOTNS}
+  # for `buildpack` use ${_BUILDPACK_SUBSTITUTIONS}
+  _BUILD_STEP_SUBSTITUTIONS: "${_DOCKER_BUILD_SUBSTITUTIONS}"
+
+  _BUILDPACK_SUBSTITUTIONS: _BUILDPACK_BUILDER=${_BUILDPACK_BUILDER}
+  _DOCKER_BUILD_SUBSTITUTIONS: _DOCKERFILE_PATH=${_DOCKERFILE_PATH}
 
   #TODO: define path of source project to build
   # Example:
@@ -85,14 +93,6 @@ substitutions:
   # Example:
   #   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
-
-  _BUILDPACK_SUBSTITUTIONS: _BUILD_PATH=${_BUILD_PATH},_BUILD_COMMIT=$COMMIT_SHA,_BUILDPACK_BUILDER=${_BUILDPACK_BUILDER}
-  _DOCKER_BUILD_SUBSTITUTIONS: _BUILD_PATH=${_BUILD_PATH},_DOCKERFILE_PATH=${_DOCKERFILE_PATH},_BUILD_COMMIT=$COMMIT_SHA
-
-  # TODO: define build step substituions based on $_BUILDER
-  # for `docker` use ${_DOCKER_BUILD_SUBSTITUIOTNS}
-  # for `buildpack` use ${_BUILDPACK_SUBSTITUTIONS}
-  _BUILD_STEP_SUBSTITUTIONS: "${_DOCKER_BUILD_SUBSTITUTIONS}"
 
   # TODO: define cloud storage bucket that used as tofu backend
   # Example:

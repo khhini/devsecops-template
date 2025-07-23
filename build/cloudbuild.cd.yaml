@@ -57,7 +57,7 @@ steps:
 
         tofu plan \
           -var-file=${_env_path}/terraform.tfvars \
-          -var=app_image_tag=${COMMIT_SHA} \
+          -var=app_image_tag=${_APP_IMAGE_TAG} \
           -out=${_base_dir}/tmp_plan/environments-${_buid_env}.tfplan
 
   - name: "ghcr.io/opentofu/opentofu:1.10.1"
@@ -86,6 +86,7 @@ steps:
 substitutions:
   # Build config
   _DEPLOYMENT_CONFIG_PATH: "."
+  _APP_IMAGE_TAG: "${COMMIT_SHA}"
   _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
   _TOFU_BACKEND_PREFIX: "tofu/sample-app"
 
