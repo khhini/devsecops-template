@@ -10,6 +10,22 @@ locals {
     service = var.app_service
 
   }
+
+  app_image_uri = module.cicd.app_image_uri
+}
+
+module "cicd" {
+  source                   = "./modules/cicd"
+  project_id               = var.devops_project_id
+  location                 = var.devops_location
+  app_env                  = var.app_env
+  app_name                 = var.app_name
+  app_service              = var.app_service
+  artifact_registry_id     = var.artifact_registry_id
+  cloudbuildv2_github_conn = var.cloudbuildv2_github_conn
+  github_remote_uri        = var.github_remote_uri
+  cicd_service_account     = var.devops_service_account
+
 }
 
 resource "google_project_service" "enabled_service" {

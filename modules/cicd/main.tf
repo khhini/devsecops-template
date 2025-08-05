@@ -3,55 +3,7 @@ locals {
 }
 
 
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_iam_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/resourcemanager.projectIamAdmin"
-}
 
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_security_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/iam.securityAdmin"
-}
-
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_service_usage_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/serviceusage.serviceUsageAdmin"
-}
-
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_artifact_registry_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/artifactregistry.admin"
-}
-
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_secret_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/secretmanager.admin"
-}
-
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_cloud_run_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/run.admin"
-}
-
-
-#trivy:ignore:AVD-GCP-0007
-resource "google_project_iam_member" "project_service_account_admin_for_devops_agent" {
-  member  = "serviceAccount:${var.devops_service_account}"
-  project = var.project_id
-  role    = "roles/iam.serviceAccountAdmin"
-}
 
 #######################################
 # Use Shared Registry
@@ -64,8 +16,8 @@ resource "google_project_iam_member" "project_service_account_admin_for_devops_a
 # }
 #
 # data "google_artifact_registry_repository" "app_registry" {
-#   location      = var.devops_location
-#   project       = var.devops_project_id
+#   location      = var.cicd_location
+#   project       = var.cicd_project_id
 #   repository_id = var.artifact_registry_id
 # }
 
@@ -81,7 +33,7 @@ locals {
 
 resource "google_artifact_registry_repository" "app_registry" {
   project       = var.project_id
-  location      = var.region
+  location      = var.location
   repository_id = coalesce(var.artifact_registry_id, var.app_name)
   format        = "DOCKER"
 
@@ -90,15 +42,15 @@ resource "google_artifact_registry_repository" "app_registry" {
 resource "google_artifact_registry_repository_iam_member" "artifact_registry_writer" {
   repository = google_artifact_registry_repository.app_registry.id
   role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${var.devops_service_account}"
+  member     = "serviceAccount:${var.cicd_service_account}"
 }
 
 #######################################
 # Github Repository
 #######################################
 resource "google_cloudbuildv2_repository" "sample_app" {
-  location          = var.devops_location
-  project           = var.devops_project_id
+  location          = var.location
+  project           = var.project_id
   name              = "${var.app_name}-${var.app_service}"
   parent_connection = var.cloudbuildv2_github_conn
   remote_uri        = var.github_remote_uri
@@ -106,9 +58,9 @@ resource "google_cloudbuildv2_repository" "sample_app" {
 
 resource "google_cloudbuild_trigger" "continuous_integration" {
   name            = "${var.app_name}-${var.app_service}-ci-${var.app_env}"
-  location        = var.devops_location
-  project         = var.devops_project_id
-  service_account = "projects/${var.devops_project_id}/serviceAccounts/${var.devops_service_account}"
+  location        = var.location
+  project         = var.project_id
+  service_account = "projects/${var.project_id}/serviceAccounts/${var.cicd_service_account}"
 
   repository_event_config {
     repository = google_cloudbuildv2_repository.sample_app.id
@@ -129,9 +81,9 @@ resource "google_cloudbuild_trigger" "continuous_integration" {
 
 resource "google_cloudbuild_trigger" "continuous_deployment" {
   name            = "${var.app_name}-${var.app_service}-cd-${var.app_env}"
-  location        = var.devops_location
-  project         = var.devops_project_id
-  service_account = "projects/${var.devops_project_id}/serviceAccounts/${var.devops_service_account}"
+  location        = var.location
+  project         = var.project_id
+  service_account = "projects/${var.project_id}/serviceAccounts/${var.cicd_service_account}"
 
 
   git_file_source {
