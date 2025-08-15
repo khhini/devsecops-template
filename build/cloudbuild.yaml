@@ -60,6 +60,16 @@ steps:
           --region=${LOCATION}
 
 substitutions:
+  # TODO: define application / project name
+  # Example:
+  #   _APP_NAME: sample-app
+  _APP_NAME: sample-app
+
+  # TODO: define application serivice
+  # Example:
+  #   _APP_SERVICE: backend
+  _APP_SERVICE: backend
+
   # TODO: define build method wheter
   # Value: "docker" || "buildpack"
   # Example:
@@ -74,7 +84,7 @@ substitutions:
   _BUILDPACK_SUBSTITUTIONS: _BUILDPACK_BUILDER=${_BUILDPACK_BUILDER}
   _DOCKER_BUILD_SUBSTITUTIONS: _DOCKERFILE_PATH=${_DOCKERFILE_PATH}
 
-  #TODO: define path of source project to build
+  # TODO: define path of source project to build
   # Example:
   #   _BUILD_PATH: "./src"
   _BUILD_PATH: "."
@@ -84,12 +94,12 @@ substitutions:
   #   _DEPLOYMENT_CONFIG_PATH: "./deployments"
   _DEPLOYMENT_CONFIG_PATH: "."
 
-  #TODO: define dockerfile location
+  # define dockerfile location
   # Example:
   #   _DOCKERFILE_PATH: "./deployments/Dockerfile"
   _DOCKERFILE_PATH: ${_DEPLOYMENT_CONFIG_PATH}/build/Dockerfile
 
-  #TODO: define builder for buildpack
+  # define builder for buildpack
   # Example:
   #   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
@@ -99,10 +109,10 @@ substitutions:
   #   _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
   _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"
 
-  # #TODO: define tofu state prefix whithin bucket
+  # define tofu state prefix whithin bucket
   # Example:
   #   _TOFU_BACKEND_PREFIX: "tofu/example/env"
-  _TOFU_BACKEND_PREFIX: "tofu/sample-app"
+  _TOFU_BACKEND_PREFIX: "tofu/${_APP_NAME}/${_APP_SERVICE}"
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamicSubstitutions: true
