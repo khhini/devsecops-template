@@ -8,42 +8,42 @@ locals {
 #######################################
 # Use Shared Registry
 #######################################
-# locals {
-#   registry_id       = data.google_artifact_registry_repository.app_registry.repository_id
-#   registry_location = data.google_artifact_registry_repository.app_registry.location
-#   registry_project  = data.google_artifact_registry_repository.app_registry.project
-#   app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
-# }
-#
-# data "google_artifact_registry_repository" "app_registry" {
-#   location      = var.cicd_location
-#   project       = var.cicd_project_id
-#   repository_id = var.artifact_registry_id
-# }
+locals {
+  registry_id       = data.google_artifact_registry_repository.app_registry.repository_id
+  registry_location = data.google_artifact_registry_repository.app_registry.location
+  registry_project  = data.google_artifact_registry_repository.app_registry.project
+  app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
+}
+
+data "google_artifact_registry_repository" "app_registry" {
+  location      = var.location
+  project       = var.project_id
+  repository_id = var.artifact_registry_id
+}
 
 #######################################
 # Use new Registry per Env
 #######################################
-locals {
-  registry_id       = google_artifact_registry_repository.app_registry.repository_id
-  registry_location = google_artifact_registry_repository.app_registry.location
-  registry_project  = google_artifact_registry_repository.app_registry.project
-  app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
-}
-
-resource "google_artifact_registry_repository" "app_registry" {
-  project       = var.project_id
-  location      = var.location
-  repository_id = coalesce(var.artifact_registry_id, var.app_name)
-  format        = "DOCKER"
-
-}
-
-resource "google_artifact_registry_repository_iam_member" "artifact_registry_writer" {
-  repository = google_artifact_registry_repository.app_registry.id
-  role       = "roles/artifactregistry.writer"
-  member     = "serviceAccount:${var.cicd_service_account}"
-}
+# locals {
+#   registry_id       = google_artifact_registry_repository.app_registry.repository_id
+#   registry_location = google_artifact_registry_repository.app_registry.location
+#   registry_project  = google_artifact_registry_repository.app_registry.project
+#   app_image_uri     = "${local.registry_location}-docker.pkg.dev/${local.registry_project}/${local.registry_id}/${var.app_name}/${var.app_service}"
+# }
+#
+# resource "google_artifact_registry_repository" "app_registry" {
+#   project       = var.project_id
+#   location      = var.location
+#   repository_id = coalesce(var.artifact_registry_id, var.app_name)
+#   format        = "DOCKER"
+#
+# }
+#
+# resource "google_artifact_registry_repository_iam_member" "artifact_registry_writer" {
+#   repository = google_artifact_registry_repository.app_registry.id
+#   role       = "roles/artifactregistry.writer"
+#   member     = "serviceAccount:${var.cicd_service_account}"
+# }
 
 #######################################
 # Github Repository
@@ -70,10 +70,12 @@ resource "google_cloudbuild_trigger" "continuous_integration" {
   }
 
   ignored_files = [
-    "build/cloudbuild.cd.yaml"
+    "${var.deployment_config_path}/build/cloudbuild.cd.yaml",
+    "${var.deployment_config_path}/scripts/*",
+    "**/*.tf"
   ]
 
-  filename = "build/cloudbuild.yaml"
+  filename = "${var.deployment_config_path}/build/cloudbuild.yaml"
 
   include_build_logs = "INCLUDE_BUILD_LOGS_WITH_STATUS"
 }
@@ -87,7 +89,7 @@ resource "google_cloudbuild_trigger" "continuous_deployment" {
 
 
   git_file_source {
-    path       = "build/cloudbuild.cd.yaml"
+    path       = "${var.deployment_config_path}/build/cloudbuild.cd.yaml"
     repository = google_cloudbuildv2_repository.sample_app.id
     revision   = "refs/heads/${local.branch_name}"
     repo_type  = "GITHUB"

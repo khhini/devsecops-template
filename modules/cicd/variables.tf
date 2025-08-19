@@ -40,3 +40,9 @@ variable "artifact_registry_id" {
   default = null
 
 }
+
+variable "deployment_config_path" {
+  type    = string
+  default = "."
+
+}
