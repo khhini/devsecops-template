@@ -3,9 +3,11 @@ steps:
     id: "Build with buildpack"
     args:
       - build
-      - ${_APP_IMAGE_URI}:latest
+      - ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
       - --builder=${_BUILDPACK_BUILDER}
+      - --cache-image=${_APP_IMAGE_URI}:latest
       - --path=${_BUILD_PATH}
+      - --publish
 
   - name: "gcr.io/cloud-builders/docker"
     id: "Tag image"
@@ -13,8 +15,8 @@ steps:
     args:
       - -c
       - |
-        docker tag ${_APP_IMAGE_URI}:latest ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
-        docker tag ${_APP_IMAGE_URI}:latest ${_APP_IMAGE_URI}:${_APP_ENV}
+        docker pull ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
+        docker tag ${_APP_IMAGE_URI}:${_BUILD_COMMIT} ${_APP_IMAGE_URI}:${_APP_ENV}
 
   - name: "gcr.io/cloud-builders/docker"
     id: "Push all tags"
