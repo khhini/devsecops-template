@@ -25,6 +25,7 @@ module "cicd" {
   cloudbuildv2_github_conn = var.cloudbuildv2_github_conn
   github_remote_uri        = var.github_remote_uri
   cicd_service_account     = var.devops_service_account
+  deployment_config_path   = "."
 
 }
 

@@ -58,9 +58,3 @@ variable "app_image_tag" {
   type    = string
   default = null
 }
-
-variable "deployment_config_path" {
-  type    = string
-  default = "."
-
-}
