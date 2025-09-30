@@ -2,9 +2,6 @@ locals {
   branch_name = var.app_env == "prd" ? "main" : var.app_env
 }
 
-
-
-
 #######################################
 # Use Shared Registry
 #######################################

@@ -8,23 +8,15 @@ steps:
     args:
       - -c
       - |
-        _build_env=${BRANCH_NAME}
-        if [ "${_build_env}" = "main" ]; then
-          _build_env=prd
-        fi
-
-        _env_path="environments/${_build_env}"
-
-        cd ${_DEPLOYMENT_CONFIG_PATH}
+        cd ${_TOFU_CONFIG_PATH}
 
         echo "########################################"
-        echo "# Init tofu state for '${_build_env}'"
+        echo "# Init tofu state for '${_DEPLOYMENT_ENV}'"
         echo "########################################"
 
         tofu init \
-          -var-file="${_env_path}/terraform.tfvars" \
           -backend-config="bucket=${_TOFU_BACKEND_BUCKET}" \
-          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_build_env}"
+          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_DEPLOYMENT_ENV}"
 
         tofu output
         tofu output app_env >  /workspace/APP_ENV.txt
@@ -40,7 +32,7 @@ steps:
         _app_image_uri=$(cat /workspace/APP_IMAGE_URI.txt | tr -d '"')
         _app_env=$(cat /workspace/APP_ENV.txt | tr -d '"')
 
-        gcloud builds submit ${_BUILD_PATH} \
+        gcloud builds submit . \
           --config=${_DEPLOYMENT_CONFIG_PATH}/build/cloudbuild.${_BUILDER}.yaml \
           --region=${LOCATION} \
           --service-account=${SERVICE_ACCOUNT} \
@@ -56,10 +48,11 @@ steps:
 
         gcloud builds triggers run ${_cloudbuild_cd_trigger} \
           --branch=${BRANCH_NAME} \
-          --substitutions=_DEPLOYMENT_CONFIG_PATH=${_DEPLOYMENT_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX},_APP_IMAGE_TAG=$COMMIT_SHA \
+          --substitutions=_DEPLOYMENT_ENV=${_DEPLOYMENT_ENV},_DEPLOYMENT_CONFIG_PATH=${_TOFU_CONFIG_PATH},_TOFU_BACKEND_BUCKET=${_TOFU_BACKEND_BUCKET},_TOFU_BACKEND_PREFIX=${_TOFU_BACKEND_PREFIX},_APP_IMAGE_TAG=$COMMIT_SHA \
           --region=${LOCATION}
 
 substitutions:
+  _DEPLOYMENT_ENV: prd
   # TODO: define application / project name
   # Example:
   #   _APP_NAME: sample-app
@@ -113,6 +106,8 @@ substitutions:
   # Example:
   #   _TOFU_BACKEND_PREFIX: "tofu/example/env"
   _TOFU_BACKEND_PREFIX: "tofu/${_APP_NAME}/${_APP_SERVICE}"
+
+  _TOFU_CONFIG_PATH: ${_DEPLOYMENT_CONFIG_PATH}/terraforms
 options:
   logging: CLOUD_LOGGING_ONLY
   dynamicSubstitutions: true

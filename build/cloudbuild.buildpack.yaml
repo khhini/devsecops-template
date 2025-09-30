@@ -4,26 +4,11 @@ steps:
     args:
       - build
       - ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
+      - --tag=${_APP_IMAGE_URI}:${_APP_ENV}
       - --builder=${_BUILDPACK_BUILDER}
       - --cache-image=${_APP_IMAGE_URI}:latest
       - --path=${_BUILD_PATH}
       - --publish
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "Tag image"
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        docker pull ${_APP_IMAGE_URI}:${_BUILD_COMMIT}
-        docker tag ${_APP_IMAGE_URI}:${_BUILD_COMMIT} ${_APP_IMAGE_URI}:${_APP_ENV}
-
-  - name: "gcr.io/cloud-builders/docker"
-    id: "Push all tags"
-    args:
-      - push
-      - --all-tags
-      - ${_APP_IMAGE_URI}
 
 substitutions:
   _BUILD_PATH: "."
