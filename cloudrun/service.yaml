@@ -1,0 +1,22 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: gotodo-api-dev-prd
+  labels:
+    cloud.googleapis.com/location: asia-southeast2
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/vpc-access-egress: private-ranges-only
+        run.googleapis.com/network-interfaces: '[{"network":"poc-dev-sandbox-vpc","subnetwork":"poc-dev-sandbox-jkt-sub"}]'
+    spec:
+      containers:
+        - image: asia-southeast2-docker.pkg.dev/khhini-devops-2705/docker-repo/gotodo/api:latest
+          env:
+            - name: env
+              value: dev
+            - name: LOG_LEVEL
+              value: info
