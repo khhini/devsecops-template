@@ -8,13 +8,6 @@ steps:
     args:
       - -c
       - |
-        _build_env=${BRANCH_NAME}
-        if [ "${_build_env}" = "main" ]; then
-          _build_env=prd
-        fi
-
-        _env_path="environments/${_build_env}"
-
         cd ${_DEPLOYMENT_CONFIG_PATH}
 
         echo "########################################"
@@ -22,9 +15,8 @@ steps:
         echo "########################################"
 
         tofu init \
-          -var-file="${_env_path}/terraform.tfvars" \
           -backend-config="bucket=${_TOFU_BACKEND_BUCKET}" \
-          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_build_env}"
+          -backend-config="prefix=${_TOFU_BACKEND_PREFIX}/${_DEPLOYMENT_ENV}"
 
         tofu output
         tofu output app_env >  /workspace/APP_ENV.txt
@@ -85,6 +77,7 @@ steps:
 
 substitutions:
   # Build config
+  _DEPLOYMENT_ENV: dev
   _DEPLOYMENT_CONFIG_PATH: "."
   _APP_IMAGE_TAG: "${COMMIT_SHA}"
   _TOFU_BACKEND_BUCKET: "khhini-devops-2705-bkt"

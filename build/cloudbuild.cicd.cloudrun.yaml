@@ -1,0 +1,94 @@
+steps:
+  ###########################
+  # CI Pipeline
+  ###########################
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Define build time env"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        cat << EOF > ${_BUILD_PATH}/.env
+        ENV=${_DEPLOYMENT_ENV}
+        EOF
+
+  - name: "gcr.io/k8s-skaffold/pack"
+    id: "Build with buildpack"
+    args:
+      - build
+      - ${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${SHORT_SHA}
+      - --tag=${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_DEPLOYMENT_ENV}
+      - --tag=${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_IMAGE_VERSION_TAG}
+      - --builder=${_BUILDPACK_BUILDER}
+      - --cache-image=${_ARTIFACT_REGISTRY_URI}/${_CACHE_IMAGE_NAME}:latest
+      - --path=${_BUILD_PATH}
+      - --env=GOOGLE_BUILDABLE=./cmd/api
+      - --env=GOOGLE_CLEAR_SOURCE=true
+      - --publish
+
+  ###########################
+  # CD Pipeline
+  ###########################
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Deploy to cloud run"
+    entrypoint: "/bin/bash"
+    args:
+      - "-c"
+      - |
+        # Replaces image to latest build image
+        sed -i "s#image:.*#image: ${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_IMAGE_VERSION_TAG}#g" ${_CLOUD_RUN_SERVICE_YAML_PATH}
+
+        gcloud run services replace ${_CLOUD_RUN_SERVICE_YAML_PATH} \
+          --project=${_CLOUD_RUN_SERVICE_PROJECT}
+
+substitutions:
+  # define deployments environments
+  _DEPLOYMENT_ENV: dev
+
+  # define deployments configurations files path
+  _DEPLOYMENT_CONFIG_PATH: ${_BUILD_PATH}/deployments
+
+  # TODO: define application / project name
+  # Example:
+  #   _APP_NAME: sample-app
+  _APP_NAME: sample-app
+
+  # TODO: define application serivice
+  # Example:
+  #   _APP_SERVICE: backend
+  _APP_SERVICE: backend
+
+  # TODO: define cloud run service yaml file path
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/services.yaml
+
+  # TODO: define cloud run service deployment project
+  # Example:
+  #   _CLOUD_RUN_SERVICE_PROJECT: example-project
+  _CLOUD_RUN_SERVICE_PROJECT: khhini-development-sandbox
+
+  # TODO: define path of source project to build
+  # Example:
+  #   _BUILD_PATH: "./src"
+  _BUILD_PATH: "."
+
+  # define builder for buildpack
+  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
+
+  # TODO: define artifacts or docker registry uri
+  # Example:
+  #   _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/khhini/sample-app/backend
+  _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/khhini/repository
+
+  # define application image name
+  _APP_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}
+
+  # define application cache image name
+  _CACHE_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}-cache
+
+  # define versioning tag based on git tag name
+  # set to latest if TAG_NAME not defined
+  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
