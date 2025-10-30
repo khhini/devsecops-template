@@ -2,16 +2,6 @@ steps:
   ###########################
   # CI Pipeline
   ###########################
-  - name: "gcr.io/cloud-builders/gcloud-slim"
-    id: "Define build time env"
-    entrypoint: "/bin/bash"
-    args:
-      - -c
-      - |
-        cat << EOF > ${_BUILD_PATH}/.env
-        ENV=${_DEPLOYMENT_ENV}
-        EOF
-
   - name: "gcr.io/k8s-skaffold/pack"
     id: "Build with buildpack"
     args:
@@ -22,37 +12,27 @@ steps:
       - --builder=${_BUILDPACK_BUILDER}
       - --cache-image=${_ARTIFACT_REGISTRY_URI}/${_CACHE_IMAGE_NAME}:latest
       - --path=${_BUILD_PATH}
+      - --env=GOOGLE_BUILDABLE=./cmd/api
+      - --env=GOOGLE_CLEAR_SOURCE=true
       - --publish
 
   ###########################
-  # CD Pipeline
+  # Trigger CD Pipeline
   ###########################
-  # - name: "gcr.io/cloud-builders/gcloud-slim"
-  #   id: "Trigger CD pipeline"
-  #   entrypoint: "/bin/bash"
-  #   args:
-  #     - -c
-  #     - |
-  #       gcloud builds triggers run ${_CLOUDBUILD_CD_TRIGGER} \
-  #         --substitutions=_APP_NAME=${_APP_NAME},_APP_SERVICE=${_APP_SERVICE},_DEPLOYMENT_ENV=${_DEPLOYMENT_ENV},_CLOUD_RUN_SERVICE_YAML_PATH=${_CLOUD_RUN_SERVICE_YAML_PATH},_ARTIFACT_REGISTRY_URI=${_ARTIFACT_REGISTRY_URI},_IMAGE_VERSION_TAG=${SHORT_SHA},_CLOUD_RUN_SERVICE_PROJECT=${_CLOUD_RUN_SERVICE_PROJECT},_CLOUD_RUN_SERVICE_REGION=${_CLOUD_RUN_SERVICE_REGION} \
-  #         --branch=${BRANCH_NAME} \
-  #         --region=${LOCATION}
   - name: "gcr.io/cloud-builders/gcloud-slim"
-    id: "Deploy to cloud run"
+    id: "Trigger CD pipeline"
     entrypoint: "/bin/bash"
     args:
-      - "-c"
+      - -c
       - |
-        # Replaces image to latest build image
-        sed -i "s#image:.*#image: ${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_IMAGE_VERSION_TAG}#g" ${_CLOUD_RUN_SERVICE_YAML_PATH}
-
-        gcloud run services replace ${_CLOUD_RUN_SERVICE_YAML_PATH} \
-          --project=${_CLOUD_RUN_SERVICE_PROJECT} \
-          --region=${_CLOUD_RUN_SERVICE_REGION}
+        gcloud builds triggers run ${_CLOUDBUILD_CD_TRIGGER} \
+          --substitutions=_APP_NAME=${_APP_NAME},_APP_SERVICE=${_APP_SERVICE},_DEPLOYMENT_ENV=${_DEPLOYMENT_ENV},_CLOUD_RUN_SERVICE_YAML_PATH=${_CLOUD_RUN_SERVICE_YAML_PATH},_ARTIFACT_REGISTRY_URI=${_ARTIFACT_REGISTRY_URI},_IMAGE_VERSION_TAG=${SHORT_SHA},_CLOUD_RUN_SERVICE_PROJECT=${_CLOUD_RUN_SERVICE_PROJECT},_CLOUD_RUN_SERVICE_REGION=${_CLOUD_RUN_SERVICE_REGION} \
+          --branch=${BRANCH_NAME} \
+          --region=${LOCATION}
 
 substitutions:
   # TODO: define deployments environments
-  _DEPLOYMENT_ENV: development
+  _DEPLOYMENT_ENV: dev
 
   # define deployments configurations files path
   _DEPLOYMENT_CONFIG_PATH: ${_BUILD_PATH}/deployments
@@ -60,20 +40,20 @@ substitutions:
   # TODO: define application / project name
   # Example:
   #   _APP_NAME: sample-app
-  _APP_NAME: ebco-weather-app
+  _APP_NAME: gotodo
 
   # TODO: define application serivice
   # Example:
   #   _APP_SERVICE: backend
-  _APP_SERVICE: be
+  _APP_SERVICE: api
 
   # define cloud run service yaml file path
-  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/cloudrun/service.yaml
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/cloudrun/services.yaml
 
   # TODO: define cloud run service deployment project
   # Example:
   #   _CLOUD_RUN_SERVICE_PROJECT: example-project
-  _CLOUD_RUN_SERVICE_PROJECT: ebc-cloud-dev-03
+  _CLOUD_RUN_SERVICE_PROJECT: khhini-development-sandbox
 
   # define cloud run service deployment region
   # Example:
@@ -83,7 +63,7 @@ substitutions:
   # TODO: define path of source project to build
   # Example:
   #   _BUILD_PATH: "./src"
-  _BUILD_PATH: "."
+  _BUILD_PATH: "./golang/gotodo-api"
 
   # define builder for buildpack
   # Example:
@@ -93,7 +73,7 @@ substitutions:
   # TODO: define artifacts or docker registry uri
   # Example:
   #   _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/khhini/sample-app/backend
-  _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/${_CLOUD_RUN_SERVICE_PROJECT}/cloud-run-source-deploy
+  _ARTIFACT_REGISTRY_URI: asia-east1-docker.pkg.dev/khhini-devops-2705/docker-repo
 
   # define application image name
   _APP_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}
@@ -104,6 +84,10 @@ substitutions:
   # define versioning tag based on git tag name
   # set to latest if TAG_NAME not defined
   _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+
+  # TODO: define cloudbuild CD Pipeline trigger id
+  # set on CI Pipeline Trigger Config
+  _CLOUDBUILD_CD_TRIGGER: cloudbuild_trigger_id
 
 options:
   logging: CLOUD_LOGGING_ONLY
