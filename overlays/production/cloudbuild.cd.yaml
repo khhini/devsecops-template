@@ -1,0 +1,80 @@
+steps:
+  ###########################
+  # CD Pipeline
+  ###########################
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Deploy to cloud run"
+    entrypoint: "/bin/bash"
+    args:
+      - "-c"
+      - |
+        # Replaces image to latest build image
+        sed -i "s#image:.*#image: ${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_IMAGE_VERSION_TAG}#g" ${_CLOUD_RUN_SERVICE_YAML_PATH}
+
+        gcloud run services replace ${_CLOUD_RUN_SERVICE_YAML_PATH} \
+          --project=${_CLOUD_RUN_SERVICE_PROJECT} \
+          --region=${_CLOUD_RUN_SERVICE_REGION}
+
+substitutions:
+  # define deployments environments
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _DEPLOYMENT_ENV: dev
+
+  # define deployments configurations files path
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _DEPLOYMENT_CONFIG_PATH: ./deployments
+
+  # define application / project name
+  # Example:
+  #   _APP_NAME: sample-app
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _APP_NAME: gotodo
+
+  # define application serivice
+  # Example:
+  #   _APP_SERVICE: backend
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _APP_SERVICE: api
+
+  # define cloud run service yaml file path
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/overlays/${_DEPLOYMENT_ENV}/services.yaml
+
+  # define cloud run service deployment project
+  # Example:
+  #   _CLOUD_RUN_SERVICE_PROJECT: example-project
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _CLOUD_RUN_SERVICE_PROJECT: khhini-development-sandbox
+
+  # define cloud run service deployment region
+  # Example:
+  #   _CLOUD_RUN_SERVICE_PROJECT: asia-southeast2
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _CLOUD_RUN_SERVICE_REGION: asia-southeast2
+
+  # define artifacts or docker registry uri
+  # Example:
+  #   _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/khhini/sample-app/backend
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _ARTIFACT_REGISTRY_URI: asia-east1-docker.pkg.dev/khhini/docker-repo
+
+  # define application image name
+  _APP_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}
+
+  # define versioning tag based on git tag name
+  # set to latest if TAG_NAME not defined
+  # Notes:
+  #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
+  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

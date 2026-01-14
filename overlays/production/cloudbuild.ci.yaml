@@ -1,0 +1,94 @@
+steps:
+  ###########################
+  # CI Pipeline
+  ###########################
+  - name: "gcr.io/k8s-skaffold/pack"
+    id: "Build with buildpack"
+    args:
+      - build
+      - ${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${SHORT_SHA}
+      - --tag=${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_DEPLOYMENT_ENV}
+      - --tag=${_ARTIFACT_REGISTRY_URI}/${_APP_IMAGE_NAME}:${_IMAGE_VERSION_TAG}
+      - --builder=${_BUILDPACK_BUILDER}
+      - --cache-image=${_ARTIFACT_REGISTRY_URI}/${_CACHE_IMAGE_NAME}:latest
+      - --path=${_BUILD_PATH}
+      - --env=GOOGLE_BUILDABLE=./cmd/api
+      - --env=GOOGLE_CLEAR_SOURCE=true
+      - --publish
+
+  ###########################
+  # Trigger CD Pipeline
+  ###########################
+  - name: "gcr.io/cloud-builders/gcloud-slim"
+    id: "Trigger CD pipeline"
+    entrypoint: "/bin/bash"
+    args:
+      - -c
+      - |
+        gcloud builds triggers run ${_CLOUDBUILD_CD_TRIGGER} \
+          --substitutions=_APP_NAME=${_APP_NAME},_APP_SERVICE=${_APP_SERVICE},_DEPLOYMENT_ENV=${_DEPLOYMENT_ENV},_CLOUD_RUN_SERVICE_YAML_PATH=${_CLOUD_RUN_SERVICE_YAML_PATH},_ARTIFACT_REGISTRY_URI=${_ARTIFACT_REGISTRY_URI},_IMAGE_VERSION_TAG=${SHORT_SHA},_CLOUD_RUN_SERVICE_PROJECT=${_CLOUD_RUN_SERVICE_PROJECT},_CLOUD_RUN_SERVICE_REGION=${_CLOUD_RUN_SERVICE_REGION} \
+          --branch=${BRANCH_NAME} \
+          --region=${LOCATION}
+
+substitutions:
+  # TODO: define deployments environments
+  _DEPLOYMENT_ENV: dev
+
+  # define deployments configurations files path
+  _DEPLOYMENT_CONFIG_PATH: ./deployments
+
+  # TODO: define application / project name
+  # Example:
+  #   _APP_NAME: sample-app
+  _APP_NAME: gotodo
+
+  # TODO: define application serivice
+  # Example:
+  #   _APP_SERVICE: backend
+  _APP_SERVICE: api
+
+  # define cloud run service yaml file path
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/overlays/${_DEPLOYMENT_ENV}/services.yaml
+
+  # TODO: define cloud run service deployment project
+  # Example:
+  #   _CLOUD_RUN_SERVICE_PROJECT: example-project
+  _CLOUD_RUN_SERVICE_PROJECT: khhini-development-sandbox
+
+  # define cloud run service deployment region
+  # Example:
+  #   _CLOUD_RUN_SERVICE_PROJECT: example-project
+  _CLOUD_RUN_SERVICE_REGION: asia-southeast2
+
+  # TODO: define path of source project to build
+  # Example:
+  #   _BUILD_PATH: "./src"
+  _BUILD_PATH: "./golang/gotodo-api"
+
+  # define builder for buildpack
+  # Example:
+  #   _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
+  _BUILDPACK_BUILDER: "gcr.io/buildpacks/builder:latest"
+
+  # TODO: define artifacts or docker registry uri
+  # Example:
+  #   _ARTIFACT_REGISTRY_URI: asia-southeast2-docker.pkg.dev/khhini/sample-app/backend
+  _ARTIFACT_REGISTRY_URI: asia-east1-docker.pkg.dev/khhini-devops-2705/docker-repo
+
+  # define application image name
+  _APP_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}
+
+  # define application cache image name
+  _CACHE_IMAGE_NAME: ${_APP_NAME}/${_APP_SERVICE}-cache
+
+  # define versioning tag based on git tag name
+  # set to latest if TAG_NAME not defined
+  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+
+  # TODO: define cloudbuild CD Pipeline trigger id
+  # set on CI Pipeline Trigger Config
+  _CLOUDBUILD_CD_TRIGGER: cloudbuild_trigger_id
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true
