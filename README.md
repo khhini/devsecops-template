@@ -126,7 +126,7 @@ Multi pipeline setup memisah CI & CD pada trigger / pipeline yang berbeda. Untuk
 
 Untuk initial deployments cloud run service dapat dikonfigurasikan pada file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml`. Update konfigurasi yang ditandai dengan comment `TODO`
 
-Notes: Apabilah ingin menggunakan konfigurasi cloud run service yang sedang berjalan di GCP atau ada perubahan perubahan konfigurasi secara manual dari GCP console file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml` perlu di sinkronisasikan dengan konfigurasi terbaru yang ada di GCP agar deployment berikutnya tidak mereplace konfigurasi yang ada di GCP dengan yang didefinisikan pada repository. Command berikut dapat digunakan untuk mengcopy / sync config ke repository project.
+> Notes: Apabilah ingin menggunakan konfigurasi cloud run service yang sedang berjalan di GCP atau ada perubahan perubahan konfigurasi secara manual dari GCP console file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml` perlu di sinkronisasikan dengan konfigurasi terbaru yang ada di GCP agar deployment berikutnya tidak mereplace konfigurasi yang ada di GCP dengan yang didefinisikan pada repository. Command berikut dapat digunakan untuk mengcopy / sync config ke repository project.
 
 ```bash
 gcloud run services describe $CLOUD_RUN_SERIVCE_NAME --project $CLOUD_RUN_SERVICE_PROJECT --region $CLOUD_RUN_SERVICE_LOCATION --format export > deployments/overlays/$_DEPLOYMENT_ENV/service.yaml
@@ -137,4 +137,5 @@ gcloud run services describe $CLOUD_RUN_SERIVCE_NAME --project $CLOUD_RUN_SERVIC
 Konfigurasi Cloud Build Trigger dapat mengikuti dokumentasi berikut:
 
 - <https://docs.cloud.google.com/build/docs/automating-builds/create-manage-triggers>
-Notes: untuk Multi Pipeline Setup, Cloud Build Trigger CI perlu di konfigurasikan dengan build time Substitutions `_CLOUDBUILD_CD_TRIGGER` dengan value id Cloud Build Trigger CD Pipeline.
+
+> Notes: untuk Multi Pipeline Setup, Cloud Build Trigger CI perlu di konfigurasikan dengan build time Substitutions `_CLOUDBUILD_CD_TRIGGER` dengan value id Cloud Build Trigger CD Pipeline.
