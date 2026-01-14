@@ -27,16 +27,6 @@ steps:
   ###########################
   # CD Pipeline
   ###########################
-  # - name: "gcr.io/cloud-builders/gcloud-slim"
-  #   id: "Trigger CD pipeline"
-  #   entrypoint: "/bin/bash"
-  #   args:
-  #     - -c
-  #     - |
-  #       gcloud builds triggers run ${_CLOUDBUILD_CD_TRIGGER} \
-  #         --substitutions=_APP_NAME=${_APP_NAME},_APP_SERVICE=${_APP_SERVICE},_DEPLOYMENT_ENV=${_DEPLOYMENT_ENV},_CLOUD_RUN_SERVICE_YAML_PATH=${_CLOUD_RUN_SERVICE_YAML_PATH},_ARTIFACT_REGISTRY_URI=${_ARTIFACT_REGISTRY_URI},_IMAGE_VERSION_TAG=${SHORT_SHA},_CLOUD_RUN_SERVICE_PROJECT=${_CLOUD_RUN_SERVICE_PROJECT},_CLOUD_RUN_SERVICE_REGION=${_CLOUD_RUN_SERVICE_REGION} \
-  #         --branch=${BRANCH_NAME} \
-  #         --region=${LOCATION}
   - name: "gcr.io/cloud-builders/gcloud-slim"
     id: "Deploy to cloud run"
     entrypoint: "/bin/bash"
@@ -55,7 +45,7 @@ substitutions:
   _DEPLOYMENT_ENV: development
 
   # define deployments configurations files path
-  _DEPLOYMENT_CONFIG_PATH: ${_BUILD_PATH}/deployments
+  _DEPLOYMENT_CONFIG_PATH: ./deployments
 
   # TODO: define application / project name
   # Example:
@@ -68,7 +58,7 @@ substitutions:
   _APP_SERVICE: be
 
   # define cloud run service yaml file path
-  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/cloudrun/service.yaml
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/overlays/${_DEPLOYMENT_ENV}/service.yaml
 
   # TODO: define cloud run service deployment project
   # Example:
@@ -103,7 +93,7 @@ substitutions:
 
   # define versioning tag based on git tag name
   # set to latest if TAG_NAME not defined
-  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+  _IMAGE_VERSION_TAG: ${SHORT_SHA:-latest}
 
 options:
   logging: CLOUD_LOGGING_ONLY

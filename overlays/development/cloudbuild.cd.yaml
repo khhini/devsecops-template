@@ -24,7 +24,7 @@ substitutions:
   # define deployments configurations files path
   # Notes:
   #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
-  _DEPLOYMENT_CONFIG_PATH: ${_BUILD_PATH}/deployments
+  _DEPLOYMENT_CONFIG_PATH: ./deployments
 
   # define application / project name
   # Example:
@@ -43,7 +43,7 @@ substitutions:
   # define cloud run service yaml file path
   # Notes:
   #   set on cloudbuild.yaml Trigger CD pipeline steps substitutions
-  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/services.yaml
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/overlays/${_DEPLOYMENT_ENV}/services.yaml
 
   # define cloud run service deployment project
   # Example:

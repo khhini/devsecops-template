@@ -35,7 +35,7 @@ substitutions:
   _DEPLOYMENT_ENV: dev
 
   # define deployments configurations files path
-  _DEPLOYMENT_CONFIG_PATH: ${_BUILD_PATH}/deployments
+  _DEPLOYMENT_CONFIG_PATH: ./deployments
 
   # TODO: define application / project name
   # Example:
@@ -48,7 +48,7 @@ substitutions:
   _APP_SERVICE: api
 
   # define cloud run service yaml file path
-  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/cloudrun/services.yaml
+  _CLOUD_RUN_SERVICE_YAML_PATH: ${_DEPLOYMENT_CONFIG_PATH}/overlays/${_DEPLOYMENT_ENV}/services.yaml
 
   # TODO: define cloud run service deployment project
   # Example:
@@ -83,7 +83,7 @@ substitutions:
 
   # define versioning tag based on git tag name
   # set to latest if TAG_NAME not defined
-  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
+  _IMAGE_VERSION_TAG: ${SHORT_SHA:-latest}
 
   # TODO: define cloudbuild CD Pipeline trigger id
   # set on CI Pipeline Trigger Config
