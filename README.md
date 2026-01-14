@@ -34,8 +34,6 @@ Branching strategy mendefinisikan roles spesifik setiap branch dalam proses depl
 | Staging (UAT/QA) | `staging`(on merge) | Full CI -> Container Build -> Deploy | End-to-End, User Acceptance |
 | Production | `main` (on tag release) | Full CI -> Container Build -> Deploy | Smoke, Post-deployment Health Checks |
 
-### CI/CD pipelines Configurations
-
 ### Config File Structure
 
 ```
@@ -74,12 +72,12 @@ CI Pipeline dipicu pada **setiap *push* ke *remote repository*** (sesuai dengan 
 
 CD Pipeline dipicu **setelah CI Pipeline berhasil** (seperti yang didefinisikan dalam `cloudbuild.cd.yaml`).
 
-1. **Update Konfigurasi**: Memperbarui file  `cloudrun/service.yaml` dengan image tag yang baru.
+1. **Update Konfigurasi**: Memperbarui file  `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml` dengan image tag yang baru.
 2. **Execute Deployment:** Menjalankan deployment script ( menggunakan `gcloud run replace` ) untuk melakukan deployment ke **Cloud Run** berdasarkan konfigurasi `cloudrun/service.yaml`
 
 ## Cloud Run Service Configurations
 
-Konfigurasi cloud run services diatur pada file `cloudrun/service.yaml`, file ini berperan sebagai single source of truth untuk deployment cloud run service. Pengaturan environment variabel, secrets, networking, volume, dan konfigurasi lain yang terkait dengan cloud run diatur pada file ini.
+Konfigurasi cloud run services diatur pada file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml`, file ini berperan sebagai single source of truth untuk deployment cloud run service. Pengaturan environment variabel, secrets, networking, volume, dan konfigurasi lain yang terkait dengan cloud run diatur pada file ini.
 
 ### Copy Existing Cloud Run service Configurations
 
@@ -89,3 +87,54 @@ Konfigurasi cloud run service dapat di copy dari existing running service dengan
 gcloud run services describe $CLOUD_RUN_SERIVCE_NAME --project $CLOUD_RUN_SERVICE_PROJECT --region $CLOUD_RUN_SERVICE_LOCATION --format export > deployments/overlays/$_DEPLOYMENT_ENV/service.yaml
 
 ```
+
+## CI/CD Pipeline Implementations in Project
+
+### Cloud Build Service Account Permissions
+
+Service Account yang digunakan oleh Cloud Build perlu ditambahkan permission berikut disetiap project target deployments.
+
+- Artifact Registry Create-on-Push Repository Administrator
+- Cloud Run Admin
+- Secret Manager Secret Accessor
+- Service Account User
+
+### Clone CI/CD Template using `git subtree`
+
+Git subtree memungkinkan cloning pada repository `devsecops-template` sebagai sub module dari project sehingga template dapat disesuaikan dengan kebutuhan project masing - masing.
+
+```bash
+cd example-project
+git remote add devsecops-template git@github.com:khhini/devsecops-template.git
+git subtree  add --prefix=./deployments devsecops-template $BRANCH
+
+```
+
+### Adjust CI/CD Configurations
+
+File configurations sudah ditandai dengan comment `TODO` yang menandakan apa saja yang perlu dikonfigurasikan di setiap initial project. Dalam repository ini terdapat 2 model konfigurasi pipeline yang dapat di pilih.
+
+#### Single Pipeline Setup
+
+Single pipeline setup menggabungkan konfigurasi CI & CD dalam 1 trigger / pipeline yang sama. Pipeline ini dapat dikonfigurasikan pada config file `deployments/overlays/$_DEPLOYMENT_ENV/cloudbuild.cicd.yaml`.
+
+#### Multi Pipeline Setup
+
+Multi pipeline setup memisah CI & CD pada trigger / pipeline yang berbeda. Untuk pipeline model ini file yang perlu dikonfigurasikan ada pada file `deployments/overlays/$_DEPLOYMENT_ENV/cloudbuild.ci.yaml`  untuk CI pipeline & file `deployments/overlays/$_DEPLOYMENT_ENV/cloudbuild.cd.yaml` untuk CD pipeline.
+
+### Adjust Cloud Run Service Config
+
+Untuk initial deployments cloud run service dapat dikonfigurasikan pada file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml`. Update konfigurasi yang ditandai dengan comment `TODO`
+
+Notes: Apabilah ingin menggunakan konfigurasi cloud run service yang sedang berjalan di GCP atau ada perubahan perubahan konfigurasi secara manual dari GCP console file `deployments/overlays/$_DEPLOYMENT_ENV/service.yaml` perlu di sinkronisasikan dengan konfigurasi terbaru yang ada di GCP agar deployment berikutnya tidak mereplace konfigurasi yang ada di GCP dengan yang didefinisikan pada repository. Command berikut dapat digunakan untuk mengcopy / sync config ke repository project.
+
+```bash
+gcloud run services describe $CLOUD_RUN_SERIVCE_NAME --project $CLOUD_RUN_SERVICE_PROJECT --region $CLOUD_RUN_SERVICE_LOCATION --format export > deployments/overlays/$_DEPLOYMENT_ENV/service.yaml
+```
+
+### Setup Cloud Build Trigger
+
+Konfigurasi Cloud Build Trigger dapat mengikuti dokumentasi berikut:
+
+- <https://docs.cloud.google.com/build/docs/automating-builds/create-manage-triggers>
+Notes: untuk Multi Pipeline Setup, Cloud Build Trigger CI perlu di konfigurasikan dengan build time Substitutions `_CLOUDBUILD_CD_TRIGGER` dengan value id Cloud Build Trigger CD Pipeline.
