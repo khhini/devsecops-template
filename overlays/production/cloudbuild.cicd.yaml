@@ -93,7 +93,7 @@ substitutions:
 
   # define versioning tag based on git tag name
   # set to latest if TAG_NAME not defined
-  _IMAGE_VERSION_TAG: ${SHORT_SHA:-latest}
+  _IMAGE_VERSION_TAG: ${TAG_NAME:-latest}
 
 options:
   logging: CLOUD_LOGGING_ONLY
